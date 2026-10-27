@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Hermes Agent on Raspberry Pi 4 — Commands</title>
+<style>
+@page { size: A4; margin: 12mm 11mm; }
+* { box-sizing: border-box; }
+body { font-family: Arial, Helvetica, sans-serif; font-size: 9.5pt; line-height: 1.35; color: #111; margin: 0; }
+h1 { font-size: 15pt; margin: 0 0 2pt; }
+p.sub { margin: 0 0 8pt; color: #444; font-size: 8.5pt; }
+h2 { font-size: 11pt; margin: 10pt 0 3pt; padding-top: 6pt; border-top: 1px solid #999; }
+h2:first-of-type { border-top: none; padding-top: 0; }
+pre { font-family: "DejaVu Sans Mono", monospace; font-size: 8.3pt; line-height: 1.3; background: #f2f2f2; border: 1px solid #ccc; padding: 4pt 6pt; margin: 3pt 0 5pt; white-space: pre-wrap; word-wrap: break-word; }
+p, li { margin: 2pt 0; }
+ul { margin: 2pt 0 4pt 14pt; padding: 0; }
+.note { color: #444; font-size: 8.5pt; }
+.warn { font-weight: bold; }
+</style></head><body>
+<h1>Hermes Agent on Raspberry Pi 4 — Commands</h1>
+<p class="sub">Condensed printable guide. Sources: Hermes command reference (2026-10-22), sessions 01–04, Sharp TV display fix, and Plan v2 (2026-10-27). Run commands one at a time; wait for the prompt to return before the next. Paste in Pi Terminal: Ctrl+Shift+V. Paste in PowerShell (SSH): right-click. <span class="warn">Never put API keys, passwords, or tokens on the command line, in notes, or in photos.</span> Where you are: <code>duppy_coder@hermes-pi</code> = on the Pi; <code>PS C:\...</code> = on the Windows PC.</p>
+
+<h2>1. Basics and checks (Pi)</h2>
+<pre>clear
+df -h /
+free -h
+hostname -I
+cat /proc/cmdline
+echo $XDG_SESSION_TYPE   # wayland = wlr-randr steps; x11 = xrandr steps</pre>
+
+<h2>2. System updates (Pi)</h2>
+<pre>sudo apt update
+sudo apt full-upgrade -y   # can take 10–20 minutes
+apt list --upgradable   # no output = fully up to date
+sudo reboot</pre>
+
+<h2>3. Display fix — Sharp TV, Wayland (Pi's own Terminal, not SSH)</h2>
+<p>The fix is <b>1360x768</b>. The TV treats it as a computer mode and shows it pixel for pixel, with no cropping. Known gap: it resets after screen sleep (kanshi fix still pending).</p>
+<pre>wlr-randr   # output name for this TV: HDMI-A-2
+wlr-randr --output HDMI-A-2 --mode 1360x768   # temporary until reboot
+wlr-randr --output HDMI-A-2 --mode 1280x720@60Hz   # fallback if screen goes blank
+cat /etc/xdg/labwc/autostart   # look for lxsession-xdg-autostart
+mkdir -p ~/.config/autostart
+nano ~/.config/autostart/display-fix.desktop</pre>
+<p>File contents (4 lines):</p>
+<pre>[Desktop Entry]
+Type=Application
+Name=Display Fix
+Exec=sh -c "sleep 3 && wlr-randr --output HDMI-A-2 --mode 1360x768"</pre>
+<pre>cat ~/.config/autostart/display-fix.desktop   # check it, then sudo reboot</pre>
+<p class="note">Save in nano: Ctrl+O, Enter, Ctrl+X. X11 variant (Parrot): replace wlr-randr with xrandr, output HDMI-2, same 1360x768 mode.</p>
+
+<h2>4. Back up a system file before editing (Pi)</h2>
+<pre>sudo cp /boot/firmware/cmdline.txt /boot/firmware/cmdline.txt.bak
+ls /boot/firmware/cmdline.txt.bak</pre>
+
+<h2>5. Hermes install — safe method (Pi)</h2>
+<pre>curl -fsSL https://hermes-agent.nousresearch.com/install.sh -o install.sh
+ls -l install.sh
+less install.sh   # read it; q to quit
+echo $HERMES_REPO_URL   # should print blank (no download redirect set)
+grep -oE 'https?://[^" )]+' install.sh | sort -u   # expect only github.com/NousResearch, github.com/astral-sh/uv, *.nousresearch.com
+bash install.sh
+source ~/.bashrc
+hermes doctor</pre>
+
+<h2>6. SSH from the Windows PC to the Pi</h2>
+<pre>systemctl is-active ssh   # on the Pi; should say active
+ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub   # on the Pi; expect SHA256 starting AGVlkj, ending ZyWNwg</pre>
+<pre>ssh duppy_coder@<Pi LAN address>   # on the PC (PowerShell)</pre>
+<p class="note">Type 'yes' only if the fingerprint matches. Type the password promptly at the prompt.</p>
+
+<h2>7. Docker Engine, official repo (Pi)</h2>
+<pre>sudo apt remove $(dpkg --get-selections docker.io docker-compose docker-doc docker-buildx podman-docker containerd runc | cut -f1)
+sudo apt update
+sudo apt install ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+gpg --show-keys /etc/apt/keyrings/docker.asc   # must be 9DC858229FC7DD38854AE2D88D81803C0EBFCD88
+sudo tee /etc/apt/sources.list.d/docker.sources &lt;&lt;EOF
+Types: deb
+URIs: https://download.docker.com/linux/debian
+Suites: $(. /etc/os-release &amp;&amp; echo "$VERSION_CODENAME")
+Components: stable
+Architectures: $(dpkg --print-architecture)
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
+sudo apt update   # expect Suites: trixie, Architectures: arm64
+sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo docker run hello-world
+sudo groupadd docker
+sudo usermod -aG docker $USER
+newgrp docker
+docker run hello-world</pre>
+<p class="note">Risk: the docker group gives root-level privileges. Accepted knowingly on 2026-10-21.</p>
+
+<h2>8. Hermes management (Pi)</h2>
+<pre>hermes doctor   # health check
+hermes setup model   # change model/provider; paste a key once, nothing else in the field
+hermes setup terminal
+hermes setup tools
+hermes tools   # turn tools on/off
+hermes setup telemetry
+hermes config
+hermes config edit   # secrets live in ~/.hermes/.env — never photograph it
+hermes   # start chatting
+hermes update   # run regularly for security fixes</pre>
+<p class="note">Do not run <code>hermes doctor --fix</code> until its changes are reviewed (npm vulnerabilities are fixed upstream, not locally).</p>
+<p>Gateway service check (Plan v2: gateway cancelled, service stays disabled):</p>
+<pre>systemctl --user is-enabled hermes-gateway   # target: disabled
+systemctl --user is-active hermes-gateway   # target: inactive</pre>
+
+<h2>9. Plan v2, Phase A–B: OpenRouter basics and first test</h2>
+<ul>
+<li>Generate a full set of OpenRouter backup codes; write them on paper. Sign out the Pi's OpenRouter browser session.</li>
+<li>Add $5–10 in credits; Auto Top-Up OFF. Done when backup codes are on paper and the balance is above $0.</li>
+<li>From the PC: SSH in, run <code>hermes</code>, send one tiny test message, exit, then check usage on the OpenRouter Activity page and confirm the GLM 5.2 vs 5.3 choice.</li>
+</ul>
+
+<h2>10. Plan v2, Phase C: iSH on the iPhone (home Wi-Fi only until WireGuard)</h2>
+<pre>apk update
+apk add openssh-client   # in iSH, after installing iSH Shell from the App Store
+ssh duppy_coder@<Pi LAN address>   # verify the fingerprint, then run: hermes</pre>
+<p class="note">If iOS asks for local network access, allow it. Risk: one guide claims iSH lacks local network access — test first. iSH pauses when you switch apps, which can drop the session; Phase D fixes that. No push notifications from Hermes.</p>
+
+<h2>11. Plan v2, Phase D: Keep sessions alive with tmux (Pi)</h2>
+<pre>sudo apt install tmux
+tmux new -s hermes
+hermes   # start Hermes inside tmux
+# Detach: Ctrl+B, then D.  Close iSH, reopen it, SSH back in, then:
+tmux attach -t hermes
+tmux ls   # list sessions</pre>
+
+<h2>12. Plan v2, Phase E: Harden SSH — keys before any remote access (do in this order)</h2>
+<pre>ssh-keygen -t ed25519   # on the iPhone (in iSH) and on the PC — one key per device
+ssh-copy-id duppy_coder@<Pi LAN address>   # copy each public key to the Pi
+ssh duppy_coder@<Pi LAN address>   # test key login from both devices FIRST
+sudo cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak
+sudo nano /etc/ssh/sshd_config   # set: PasswordAuthentication no
+sudo systemctl restart ssh</pre>
+<p class="note">Done when only your two devices, holding their keys, can log in. Consider a login-attempt blocker as well.</p>
+
+<h2>13. Plan v2, Phases F–H: Network check, WireGuard, isolation (checklist, no Pi commands)</h2>
+<ul>
+<li><b>F — TP-Link router:</b> model number from the sticker on the bottom; WAN/Internet IP in the router admin page (100.64–100.127 = CGNAT); does it have a built-in WireGuard server? Built-in dynamic DNS?</li>
+<li><b>G — WireGuard:</b> Option 1 (preferred, if supported): server on the router, no port points at the Pi. Option 2: server on the Pi + one UDP port forward. If CGNAT: ask the ISP for a public IP, or use a small relay (extra cost; privacy review). Set up dynamic DNS (privacy review if free). Install the WireGuard iPhone app, import the config — never photograph the config or its QR code. Test from <b>cellular data</b>, not Wi-Fi: connect WireGuard, then SSH with iSH.</li>
+<li><b>H — Isolation:</b> decide guest network vs firewall-only after Phase G (a VPN may land on the main network, which guest isolation could block). Pi firewall (Docker-aware): allow SSH only from home network and VPN; block the Pi from starting connections to other home devices; allow internet access.</li>
+</ul>
+
+<h2>14. Plan v2, Phase I: Features (as needed)</h2>
+<ul>
+<li>Turn on Browser Automation only when you need web browsing (also needs egress allowlist changes).</li>
+<li>Privacy reviews before use: Keenable (web extract), Z.ai (if keeping GLM). The 2026-10-22 Keenable review did not clear the no-concerns bar.</li>
+<li>Check Computer Use, Connections, and Browser are really disabled; confirm the ddgs backend uses DuckDuckGo only; run <code>hermes update</code> regularly. Optional: cheaper model for subagents (<code>delegation.model</code>).</li>
+</ul>
+
+<h2>15. Password incident recovery (Pi)</h2>
+<pre>clear
+history -c &amp;&amp; history -w
+passwd</pre>
+<p class="note">Use only if a password is ever typed at a normal prompt (not a password prompt).</p>
+
+<h2>16. Shut down or restart (Pi)</h2>
+<pre>sudo shutdown now   # wait until the green light stops blinking before unplugging
+sudo reboot</pre>
+
+<h2>Do NOT do these</h2>
+<ul>
+<li>Pipe the Hermes installer straight into bash without reading it first.</li>
+<li>Use 1920x1080 to fix TV cropping — it still crops. Use 1360x768.</li>
+<li>Add kernel margins in /boot/firmware/cmdline.txt — Wayland ignores them.</li>
+<li>Create ~/.config/labwc/autostart — it replaces the system startup file and you lose the taskbar and desktop.</li>
+<li>Set up Telegram/WhatsApp gateway or gateway auto-start — cancelled in Plan v2.</li>
+<li>Enable remote access before SSH keys are working and password login is off.</li>
+<li>Put API keys, passwords, or tokens on the command line, in notes, or in photos; photograph a WireGuard config or QR code.</li>
+<li>Run <code>hermes doctor --fix</code> before its changes are reviewed.</li>
+</ul>
+</body></html>
