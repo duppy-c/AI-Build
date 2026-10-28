@@ -1,6 +1,6 @@
 # Command Reference: Hermes Agent on Raspberry Pi 4
 
-*Running log of every command used to get the system up and running. Last updated 2026-10-22 02:07 ET.*
+*Running log of every command used to get the system up and running. Last updated 2026-10-28 01:39 ET.*
 
 ## Rules
 
@@ -427,3 +427,79 @@ hermes update
 ```
 
 Note: Run regularly; the npm vulnerabilities found 2026-10-22 are fixed upstream, not locally. Do not run `hermes doctor --fix` until its changes are reviewed.
+
+## 14. iSH on the iPhone (SSH to the Pi, home Wi-Fi)
+
+**Where:** iSH app on iPhone
+
+**Install the SSH client**
+
+```
+apk update
+```
+
+```
+apk add openssh-client
+```
+
+**Connect to the Pi (only type yes if the fingerprint starts AGVlkj and ends ZyWNwg)**
+
+```
+ssh duppy_coder@<Pi LAN address>
+```
+
+**Start Hermes**
+
+```
+hermes
+```
+
+## 15. Windows network troubleshooting
+
+**Where:** PC (PowerShell)
+
+**Show every adapter, its address, MAC, and gateway**
+
+```
+ipconfig /all
+```
+
+**Can the PC reach the router at all?**
+
+```
+ping <router address>
+```
+
+**Is the router's settings page reachable? (TcpTestSucceeded: True/False)**
+
+```
+Test-NetConnection <router address> -Port 443
+```
+
+```
+Test-NetConnection <router address> -Port 80
+```
+
+**Forget a saved Wi-Fi network (replace NAME)**
+
+```
+netsh wlan delete profile name="NAME"
+```
+
+**Make a detailed Wi-Fi report (opens as wlan-report-latest.html)**
+
+```
+netsh wlan show wlanreport
+```
+
+Note: If Wi-Fi won't connect after a router change: Device Manager > Network adapters > adapter > Uninstall Device (keep the driver), then restart.
+
+## 16. Router (TP-Link Archer AX50)
+
+**Where:** Browser on a home device
+
+**Open the router page (use the number if tplinkwifi.net shows TP-Link's help page)**
+
+Type in the browser address bar: https://<router address> (or http://<router address>)
+
+Note: Back up settings (System Tools > Backup & Restore) before firmware upgrades or big changes. Never restrict admin access to listed devices without a tested way back in.
