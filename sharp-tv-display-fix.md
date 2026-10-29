@@ -153,3 +153,33 @@ passwd
 - [wlr-randr manual (Debian Trixie)](https://dyn.manpages.debian.org/trixie/wlr-randr/wlr-randr.1)
 - [labwc-config manual (config file precedence)](https://man.archlinux.org/man/labwc-config.5)
 - [wlroots issue #3597: DRM overscan margins handling](https://gitlab.freedesktop.org/wlroots/wlroots/-/issues/3597)
+
+## Update 2026-10-28: making it survive screen sleep and port changes
+
+- The output name depends on which micro-HDMI port the cable is in: **HDMI-A-1** or **HDMI-A-2**. If the fix stops working, run `wlr-randr` and check the first line for the current name.
+- The autostart file only runs at login. **kanshi** (started by the desktop) reapplies settings when the screen wakes or reconnects.
+- Working kanshi file (`~/.config/kanshi/config`, written by the Pi's Screen Configuration tool), covering both ports:
+
+```
+profile {
+    output HDMI-A-1 enable scale 1.000000 mode 1360x768@60.015 position 0,0
+}
+
+profile {
+    output HDMI-A-2 enable scale 1.000000 mode 1360x768@60.015 position 0,0
+}
+```
+
+- Reload kanshi after editing:
+
+```
+killall -s SIGHUP kanshi
+```
+
+- Fix the autostart file's port name if needed:
+
+```
+sed -i 's/HDMI-A-2/HDMI-A-1/' ~/.config/autostart/display-fix.desktop
+```
+
+- Verified 2026-10-28: setting held through screen off/on and a reboot.
