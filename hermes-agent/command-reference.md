@@ -1,6 +1,6 @@
 # Command Reference: Hermes Agent on Raspberry Pi 4
 
-*Running log of every command used to get the system up and running. Last updated 2026-10-28 01:39 ET.*
+*Running log of every command used to get the system up and running. Last updated 2026-10-29 00:28 ET.*
 
 ## Rules
 
@@ -229,7 +229,7 @@ Note: Expected: SHA256 starting AGVlkj, ending ZyWNwg.
 **On the PC (PowerShell): connect**
 
 ```
-ssh duppy_coder@<Pi LAN address>
+ssh duppy_coder@<Pi address>
 ```
 
 Note: Type 'yes' only if the fingerprint matches. Type the password promptly.
@@ -445,7 +445,7 @@ apk add openssh-client
 **Connect to the Pi (only type yes if the fingerprint starts AGVlkj and ends ZyWNwg)**
 
 ```
-ssh duppy_coder@<Pi LAN address>
+ssh duppy_coder@<Pi address>
 ```
 
 **Start Hermes**
@@ -503,3 +503,67 @@ Note: If Wi-Fi won't connect after a router change: Device Manager > Network ada
 Type in the browser address bar: https://<router address> (or http://<router address>)
 
 Note: Back up settings (System Tools > Backup & Restore) before firmware upgrades or big changes. Never restrict admin access to listed devices without a tested way back in.
+
+## 17. Pi Wi-Fi network management (NetworkManager)
+
+**Where:** Pi (on its own screen; switching networks drops SSH)
+
+**Which Wi-Fi network is the Pi on?**
+
+```
+nmcli -t -f ACTIVE,SSID device wifi | grep '^yes'
+```
+
+**List nearby networks**
+
+```
+nmcli device wifi list
+```
+
+**List saved connections (press q to exit)**
+
+```
+nmcli connection show
+```
+
+**Forget a saved network (replace NAME)**
+
+```
+nmcli connection delete "NAME"
+```
+
+**Show the Pi's addresses, and its Wi-Fi MAC**
+
+```
+hostname -I
+```
+
+```
+cat /sys/class/net/wlan0/address
+```
+
+Note: The Pi's address <Pi address> is reserved on the router (MAC entered with dashes, e.g. DC-A6-32-...).
+
+## 18. Display: kanshi (survives screen sleep and reboots)
+
+**Where:** Pi (own Terminal)
+
+**View the kanshi settings**
+
+```
+cat ~/.config/kanshi/config
+```
+
+**Reload kanshi after changes**
+
+```
+killall -s SIGHUP kanshi
+```
+
+**Change the port name in the autostart file**
+
+```
+sed -i 's/HDMI-A-2/HDMI-A-1/' ~/.config/autostart/display-fix.desktop
+```
+
+Note: The screen name depends on the HDMI port used (HDMI-A-1 or HDMI-A-2). Check the first line of `wlr-randr`.
